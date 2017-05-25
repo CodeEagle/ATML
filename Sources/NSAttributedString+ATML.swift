@@ -202,7 +202,7 @@ extension ATML {
                 return super.attachmentBounds(for: textContainer, proposedLineFragment: lineFrag, glyphPosition: position, characterIndex: charIndex)
             }
             let width = (lineFrag.width - position.x) - (container.lineFragmentPadding * 2)
-            let rect = CGRect(x: 0.0, y: 0.0, width: floor(width), height: 1.0)
+            let rect = CGRect(x: 20, y: 0.0, width: floor(width), height: 1.0)
             return rect
         }
     }

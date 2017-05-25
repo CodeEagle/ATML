@@ -38,9 +38,6 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
                     guard let image = obj.0, let sself = self else { return }
                     var imgSize = image.size
                     let ratio = imgSize.width / imgSize.height
-                    var offset = (sself.base?.textContainerInset.left ?? 0) + (sself.base?.textContainerInset.right ?? 0)
-                    if offset < 0 { offset = 0 }
-                    let width = UIScreen.main.bounds.width - offset
                     if imgSize.width > width {
                         imgSize.width = width
                         imgSize.height = width / ratio
@@ -60,15 +57,12 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
             var size = attachment.size
             let ratio = size.width / size.height
             let width = UIScreen.main.bounds.width
-            let leftOffset = (self.base?.textContainerInset.left ?? 0)
-            var offset = leftOffset + (self.base?.textContainerInset.right ?? 0)
-            if offset < 0 { offset = 0 }
-            if size.width > width - offset {
-                size.width = width - offset
+            if size.width > width {
+                size.width = width
                 size.height = size.width / ratio
             }
             attachment.maxSize = size
-            let web: WKWebView = WKWebView(frame: CGRect(origin: CGPoint(x: leftOffset, y:0), size: size))
+            let web: WKWebView = WKWebView(frame: CGRect(origin: .zero, size: size))
             web.scrollView.scrollsToTop = false
             web.scrollView.isScrollEnabled = false
             web.load(URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 60))
@@ -226,13 +220,18 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         }
         var frame = info.view.frame
         let width = base?.textContainer.size.width ?? 0
+        if info.view.frame.width > width {
+            frame.size.width = width
+        }
         let topLinePadding: CGFloat = 4.0
+        let offset = (base?.textContainerInset.left ?? 0)
         frame.origin.y = y + (base?.textContainerInset.top ?? 0) + topLinePadding
+        
         switch attachment.align {
-        case .none: frame.origin.x =  width / 2.0 - (info.view.frame.width / 2.0)
+        case .none: frame.origin.x =  (width) / 2.0 - (frame.size.width / 2.0) + offset
         case .left: frame.origin.x = 0.0
-        case .right: frame.origin.x = width - info.view.frame.width
-        case .center: frame.origin.x = width / 2.0 - (info.view.frame.width / 2.0)
+        case .right: frame.origin.x = width - frame.size.width
+        case .center: frame.origin.x = width / 2.0 - (frame.size.width / 2.0) + offset
         }
         return frame
     }

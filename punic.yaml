@@ -1,0 +1,8 @@
+defaults:
+    configuration: Release
+    platform: iOS
+skips:
+
+repo-overrides:
+    Kingfisher: file:///Luoo/Kingfisher
+    KVOBlock: file:///Luoo/KVOBlock
