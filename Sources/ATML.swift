@@ -38,7 +38,7 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
                     guard let image = obj.0, let sself = self else { return }
                     var imgSize = image.size
                     let ratio = imgSize.width / imgSize.height
-                    var offset = (self?.base?.textContainerInset.left ?? 0) + (self?.base?.textContainerInset.right ?? 0)
+                    var offset = (sself.base?.textContainerInset.left ?? 0) + (sself.base?.textContainerInset.right ?? 0)
                     if offset < 0 { offset = 0 }
                     let width = UIScreen.main.bounds.width - offset
                     if imgSize.width > width {
@@ -60,8 +60,8 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
             var size = attachment.size
             let ratio = size.width / size.height
             let width = UIScreen.main.bounds.width
-            let leftOffset = (self?.base?.textContainerInset.left ?? 0)
-            var offset = leftOffset + (self?.base?.textContainerInset.right ?? 0)
+            let leftOffset = (self.base?.textContainerInset.left ?? 0)
+            var offset = leftOffset + (self.base?.textContainerInset.right ?? 0)
             if offset < 0 { offset = 0 }
             if size.width > width - offset {
                 size.width = width - offset
