@@ -249,7 +249,7 @@ extension UITextView {
         return value
     }
 
-    public func display(html: String, documentAttributes: [String: Any]? = nil, enableAutoLoadAttachment: Bool = true, done: @escaping () -> ()) {
+    public func display(html: String, documentAttributes: [String: Any]? = nil, enableAutoLoadAttachment: Bool = true, done: @escaping () -> () = {}) {
         atml.enableAutoLoadAttachment = enableAutoLoadAttachment
         atml.display(html: html, documentAttributes: documentAttributes, done: done)
     }
