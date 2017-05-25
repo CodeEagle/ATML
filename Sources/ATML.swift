@@ -87,11 +87,12 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         
     }
 
-    func display(html: String, documentAttributes: [String: Any]? = nil) {
+    func display(html: String, documentAttributes: [String: Any]? = nil, done: @escaping () -> ()) {
         DispatchQueue.global(qos: .userInitiated).async {
             let att = html.attributedString(withDocumentAttributes: documentAttributes)
             DispatchQueue.main.async {
                 self.base?.attributedText = att
+                done()
             }
         }
     }
@@ -248,8 +249,8 @@ extension UITextView {
         return value
     }
 
-    public func display(html: String, documentAttributes: [String: Any]? = nil, enableAutoLoadAttachment: Bool = true) {
+    public func display(html: String, documentAttributes: [String: Any]? = nil, enableAutoLoadAttachment: Bool = true, done: @escaping () -> ()) {
         atml.enableAutoLoadAttachment = enableAutoLoadAttachment
-        atml.display(html: html, documentAttributes: documentAttributes)
+        atml.display(html: html, documentAttributes: documentAttributes, done: done)
     }
 }

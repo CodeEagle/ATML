@@ -21,7 +21,6 @@
 		102C91E91ED56DF6002D5780 /* ATML.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ATML.swift; sourceTree = "<group>"; };
 		102C91ED1ED58E4D002D5780 /* NSAttributedString+ATML.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "NSAttributedString+ATML.swift"; sourceTree = "<group>"; };
 		102C922C1ED59618002D5780 /* Cartfile */ = {isa = PBXFileReference; lastKnownFileType = text; path = Cartfile; sourceTree = "<group>"; };
-		102C922D1ED59618002D5780 /* punic.yaml */ = {isa = PBXFileReference; lastKnownFileType = text; path = punic.yaml; sourceTree = "<group>"; };
 		47C4E92C66D753BBC3953C76 /* KVOBlock.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = KVOBlock.framework; path = Carthage/Build/iOS/KVOBlock.framework; sourceTree = "<group>"; };
 		E00FBEB1383A58AA248C5DA8 /* Kingfisher.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kingfisher.framework; path = Carthage/Build/iOS/Kingfisher.framework; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -43,7 +42,6 @@
 			isa = PBXGroup;
 			children = (
 				102C922C1ED59618002D5780 /* Cartfile */,
-				102C922D1ED59618002D5780 /* punic.yaml */,
 				102C91E41ED55B6D002D5780 /* Sources */,
 				102C91CC1ED547B5002D5780 /* ATML */,
 				102C91CB1ED547B5002D5780 /* Products */,
