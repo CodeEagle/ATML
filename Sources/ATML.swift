@@ -24,13 +24,15 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         let isRemote = src.hasPrefix("http") || src.hasPrefix("ftp")
         if tag == Attachment.Tag.image.rawValue, isRemote {
             var size = attachment.size
-            let ratio = size.width / size.height
             let width = UIScreen.main.bounds.width
-            if size.width > width {
-                size.width = width
-                size.height = width / ratio
+            if size != .zero, size.height != 0 {
+                let ratio = size.width / size.height
+                if size.width > width {
+                    size.width = width
+                    size.height = width / ratio
+                }
+                attachment.maxSize = size
             }
-            attachment.maxSize = size
             let imageView: UIImageView = UIImageView(frame: CGRect(origin: .zero, size: size))
             var handler: CompletionHandler?
             if size == .zero {
@@ -42,6 +44,7 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
                         imgSize.width = width
                         imgSize.height = width / ratio
                     }
+                    attachment.size = imgSize
                     attachment.maxSize = imgSize
                     imageView.frame.size = imgSize
                     DispatchQueue.main.async {
@@ -179,7 +182,7 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
 
         var exclusionFrame = attachmentFrame
         if attachment.align == .none {
-            exclusionFrame = CGRect(x: 0.0, y: attachmentFrame.minY, width: base?.frame.width ?? 0, height: attachmentFrame.height)
+            exclusionFrame = CGRect(x: 0.0, y: ceil(attachmentFrame.minY), width: base?.frame.width ?? 0, height: ceil(attachmentFrame.height))
         }
         exclusionFrame.origin.y -= base?.textContainerInset.top ?? 0
 
