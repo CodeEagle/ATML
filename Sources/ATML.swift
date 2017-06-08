@@ -52,8 +52,17 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
                     }
                 }
             }
+            if let link = attachment.link {
+                let tag = attachment.identifier.hashValue
+                self._imageInfo[tag] = link
+                imageView.tag = tag
+                let tap = UITapGestureRecognizer(target: self, action: #selector(ATML.imageTap(tap:)))
+                imageView.addGestureRecognizer(tap)
+                imageView.isUserInteractionEnabled = true
+            }
             imageView.contentMode = .scaleAspectFit
             imageView.kf.setImage(with: URL(string: src), options: [.transition(ImageTransition.fade(1))], completionHandler: handler)
+            
             return imageView
         }
         if tag == Attachment.Tag.iframe.rawValue, let url = URL(string: src) {
@@ -78,10 +87,19 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
 
     public var attachments: [Attachment] = []
 
+    private var _imageInfo: [Int: String] = [:]
     fileprivate var _attachmentInfoMap: [String: AttachmentInfo] = [:]
     fileprivate let _kvoAttributedTextKey = "attributedText"
     fileprivate static var Store = "ATML.Store"
-
+    private var _lastRange: NSRange?
+    private var _lastFrame: CGRect?
+    private lazy var blockquoteCSS: String = {
+        let blockQuoteCSS = "\nblockquote > p {color:#808080; display: inline;} \n blockquote { background: #f9f9f9; padding: 10px;}"
+        let pCSS = "p {}"
+        let cssStyle = "\(blockQuoteCSS)\n"
+        return "<style>\(cssStyle)</style>"
+    }()
+    
     var layoutManager: NSLayoutManager? { return base?.layoutManager }
     
     public init(_ base: UITextView) {
@@ -92,19 +110,70 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
             self.resetAttachments()
         }
         layoutManager?.delegate = self
-        
     }
 
     func display(html: String, documentAttributes: [String: Any]? = nil, done: @escaping () -> ()) {
         DispatchQueue.global(qos: .userInitiated).async {
-            let att = html.attributedString(withDocumentAttributes: documentAttributes)
+            let text = self.emhanceImageWithLink(for: html)
+            let final = "\(text)\(self.blockquoteCSS)"
+            let att = final.attributedString(withDocumentAttributes: documentAttributes)
             DispatchQueue.main.async {
                 self.base?.attributedText = att
                 done()
             }
         }
     }
+    
+    @objc private func imageTap(tap: UITapGestureRecognizer) {
+        guard let tag = tap.view?.tag, let info = _imageInfo[tag], let url = URL(string: info), let tv = base else { return }
+        guard tv.delegate?.textView?(tv, shouldInteractWith: url, in: NSMakeRange(0, 0)) == nil else { return }
+        if #available(iOS 10.0, *) {
+            _ = tv.delegate?.textView?(tv, shouldInteractWith: url, in: NSMakeRange(0, 0), interaction: .invokeDefaultAction)
+        }
+    }
 
+    private func emhanceImageWithLink(for text: String) -> String {
+        
+        let linkRegex = ATML.Attachment.Tag.link.regex
+        let results = linkRegex.matches(in: text, options: [], range: NSMakeRange(0, text.characters.count))
+        var placeholders = [String : String]()
+        var raw = text as NSString
+        for (i, result) in results.enumerated() {
+            let id = "placeholder\(i)"
+            let sub = (text as NSString).substring(with: result.range)
+            raw = raw.replacingOccurrences(of: sub, with: id) as NSString
+            placeholders[id] = sub
+        }
+        let parser = ATML.ATMLXMLParser()
+        for (key, value) in placeholders {
+            let subimages = images(within: value)
+            print(value)
+            parser.parse(value)
+            var copy = value
+            if subimages.count > 0, let href = parser.tagAttributes["a"]?["href"]  {
+                for image in subimages {
+                    let target = image.replacingOccurrences(of: "src=", with: "link=\"\(href)\" src=")
+                    copy = copy.replacingOccurrences(of: image, with: target)
+                }
+            }
+            raw = raw.replacingOccurrences(of: key, with: copy) as NSString
+        }
+        return raw as String
+    }
+    
+    
+    private func images(within text: String) -> [String] {
+        let imageRegex = ATML.Attachment.Tag.image.regex
+        let results = imageRegex.matches(in: text, options: [], range: NSMakeRange(0, text.characters.count))
+        var final = [String]()
+        let raw = text as NSString
+        for result in results {
+            let sub = raw.substring(with: result.range)
+            final.append(sub)
+        }
+        return final
+    }
+    
     public func viewForAttachment(_ attachment: Attachment) -> UIView? {
         return _attachmentInfoMap[attachment.identifier]?.view
     }
@@ -236,6 +305,12 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         case .right: frame.origin.x = width - frame.size.width
         case .center: frame.origin.x = width / 2.0 - (frame.size.width / 2.0) + offset
         }
+        if let lastRange = _lastRange, lastRange.location + lastRange.length == range.location - 1, let lastFrame = _lastFrame {
+            frame.origin.y += lastFrame.height
+        }
+        _lastRange = range
+        _lastFrame = frame
+        
         return frame
     }
 

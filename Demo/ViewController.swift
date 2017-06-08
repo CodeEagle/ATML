@@ -8,13 +8,19 @@
 
 import UIKit
 import ATML
-class ViewController: UIViewController {
+class ViewController: UIViewController, UITextViewDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
         let path = Bundle.main.url(forResource: "File", withExtension: nil)!
         let content = try! String(contentsOf: path)
-        textView.display(html: content)
+        let font = UIFont.systemFont(ofSize: 14)
+        let prefix = "<div style=\"font-family: PingFangSC-Light; font-size: \(font.pointSize)px; color:#4d4d4d\">"
+        let subfix = "</div>"
+        let final = "\(prefix)\(content)\(subfix)"
+        textView.display(html: final)
+        textView.delegate = self
+        textView.isEditable = false
         // Do any additional setup after loading the view, typically from a nib.
     }
     @IBOutlet weak var textView: UITextView!
@@ -24,6 +30,9 @@ class ViewController: UIViewController {
         // Dispose of any resources that can be recreated.
     }
 
-
+    func textView(_ textView: UITextView, shouldInteractWith URL: URL, in characterRange: NSRange, interaction: UITextItemInteraction) -> Bool {
+        print("wanna open \(URL)")
+        return false
+    }
 }
 

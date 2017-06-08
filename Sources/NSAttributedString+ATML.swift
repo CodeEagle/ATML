@@ -8,7 +8,7 @@
 
 import Foundation
 
-private let _defaultIdentifier = "ATML.Attachment.default.identifier"
+private let _defaultIdentifier = "ATMLAttachmentDefaultIdentifier"
 private let MediaTypes = "wav,aac,mp3,mov,mp4,m4v"
 
 extension String {
@@ -16,9 +16,8 @@ extension String {
     typealias Result = (processedString: String, attachments: [ATML.Attachment])
     
     internal func attributedString(withDocumentAttributes attrs: [String: Any]? = nil) -> NSAttributedString? {
-        let finalParagraph = "<p></p>"
-        let parsed = parsing(tags: [.image, .embed, .iframe, .audio, .video])
-        let parsedString = "\(parsed.processedString)\(finalParagraph)"
+        let parsed = parsing(tags: [.image, .embed, .iframe, .audio, .video, .blockquote, .strong, .em, .i])
+        let parsedString = parsed.processedString
         let attachments = parsed.attachments
         
         guard let data = parsedString.data(using: String.Encoding.utf8) else { return nil }
@@ -30,14 +29,84 @@ extension String {
         
         if let attr = attrs { options[NSDefaultAttributesDocumentAttribute] = attr }
         guard let attrString = try? NSMutableAttributedString(data: data, options: options, documentAttributes: nil) else { return nil }
+        let parsedAttributedString = dealWithStrongAndItalic(with: attrString)
         for attachment in attachments {
-            let raw = attrString.string
+            let raw = parsedAttributedString.string
             guard let r = raw.range(of: attachment.identifier) else { continue }
             let range = raw.nsRange(from: r)
             let attachmentString = NSAttributedString(attachment: attachment)
-            attrString.replaceCharacters(in: range, with: attachmentString)
+            parsedAttributedString.replaceCharacters(in: range, with: attachmentString)
         }
-        return NSAttributedString(attributedString: attrString)
+        return NSAttributedString(attributedString: parsedAttributedString)
+    }
+    
+    
+    private func dealStrong(with att: NSAttributedString) -> NSMutableAttributedString {
+        let mAttr = NSMutableAttributedString(attributedString: att)
+        let start = "ATMLStrong"
+        let end = "ATMLStrongEnd"
+        let result = ATML.Attachment.Tag.atmlStrong.regex.firstMatch(in: mAttr.string, options: [], range: NSMakeRange(0, mAttr.string.characters.count))
+        if let re = result {
+            let strongAtt = NSMutableAttributedString(attributedString: mAttr.attributedSubstring(from: re.range))
+            let att = mAttr.attributes(at: 0, longestEffectiveRange: nil, in: re.range)
+            guard let startRange = strongAtt.string.range(of: start) else { return mAttr }
+            let rStart = strongAtt.string.nsRange(from: startRange)
+            strongAtt.replaceCharacters(in: rStart, with: "")
+            guard let endRange = strongAtt.string.range(of: end) else { return mAttr }
+            let rEnd = strongAtt.string.nsRange(from: endRange)
+            strongAtt.replaceCharacters(in: rEnd, with: "")
+            let range = NSMakeRange(rStart.location, rEnd.location)
+            if let font = att[NSFontAttributeName] as? UIFont  {
+                let desc = font.fontDescriptor
+                let existingTraitsWithNewTrait = desc.symbolicTraits.rawValue | UIFontDescriptorSymbolicTraits.traitBold.rawValue
+                let exist = UIFontDescriptorSymbolicTraits(rawValue: existingTraitsWithNewTrait)
+                if let d = desc.withSymbolicTraits(exist) {
+                    let finalFont = UIFont(descriptor: d, size: font.pointSize)
+                    strongAtt.addAttributes([NSFontAttributeName : finalFont], range: NSMakeRange(0, strongAtt.string.characters.count))
+                }
+            }
+            let sub = strongAtt.attributedSubstring(from: range)
+            let final = dealItalic(with: sub)
+            strongAtt.replaceCharacters(in: range, with: final)
+            mAttr.replaceCharacters(in: re.range, with: strongAtt)
+            return dealStrong(with: mAttr)
+        } else {
+            return mAttr
+        }
+    }
+    
+    private func dealItalic(with att: NSAttributedString) -> NSMutableAttributedString {
+        let mAttr = NSMutableAttributedString(attributedString: att)
+        let start = "ATMLEM"
+        let end = "ATMLEMEnd"
+        let regex = ATML.Attachment.Tag.atmlEM.regex
+        let result = regex.firstMatch(in: mAttr.string, options: [], range: NSMakeRange(0, mAttr.string.characters.count))
+        if let re = result {
+            let emAtt = NSMutableAttributedString(attributedString: mAttr.attributedSubstring(from: re.range))
+            let att = mAttr.attributes(at: 0, longestEffectiveRange: nil, in: re.range)
+            guard let startRange = emAtt.string.range(of: start) else { return mAttr }
+            let rStart = emAtt.string.nsRange(from: startRange)
+            emAtt.replaceCharacters(in: rStart, with: "")
+            guard let endRange = emAtt.string.range(of: end) else { return mAttr }
+            let rEnd = emAtt.string.nsRange(from: endRange)
+            emAtt.replaceCharacters(in: rEnd, with: "")
+            if let font = att[NSFontAttributeName] as? UIFont  {
+                let matrix =  __CGAffineTransformMake(1, 0, CGFloat(tanf(Float(15 * Double.pi / 180))), 1, 0, 0);
+                let desc = UIFontDescriptor(name: font.fontName, matrix: matrix)
+                let finalFont = UIFont(descriptor: desc, size: font.pointSize)
+                emAtt.addAttributes([NSFontAttributeName : finalFont], range: NSMakeRange(0, emAtt.string.characters.count))
+            }
+            mAttr.replaceCharacters(in: re.range, with: emAtt)
+            return dealItalic(with: mAttr)
+        } else {
+            return mAttr
+        }
+    }
+    private func dealWithStrongAndItalic(with att: NSAttributedString) -> NSMutableAttributedString {
+        var mAttr = NSMutableAttributedString(attributedString: att)
+        mAttr = dealStrong(with: mAttr)
+        mAttr = dealItalic(with: mAttr)
+        return mAttr
     }
     
     private func parsing(tags: [ATML.Attachment.Tag]) -> Result {
@@ -68,6 +137,29 @@ extension String {
             if matchedString.hasSuffix(closingTag) == false {
                 xml = "\(matchedString)\(closingTag)"
             }
+            if tag == .blockquote {
+                let final = xml.replacingOccurrences(of: "<blockquote>\n", with: "<blockquote>\n<k style=\"color:#ccc; font-size: 2em; font-family: 'Copperplate'\">“</k>")
+                mString.replaceCharacters(in: result.range, with: "\(final)<br/>")
+                continue
+            }
+            if tag == .em || tag == .i {
+                let textAttachment = ATML.Attachment(tag: tagName, id: identifier, src: "")
+                textAttachment.attributes = parser.attributes
+                textAttachment.html = matchedString
+                let start = "ATMLEM"
+                let end = "ATMLEMEnd"
+                mString.replaceCharacters(in: result.range, with: "\(start)\(xml)\(end)")
+                continue
+            }
+            if tag == .strong {
+                let textAttachment = ATML.Attachment(tag: tagName, id: identifier, src: "")
+                textAttachment.attributes = parser.attributes
+                textAttachment.html = matchedString
+                let start = "ATMLStrong"
+                let end = "ATMLStrongEnd"
+                mString.replaceCharacters(in: result.range, with: "\(start)\(xml)\(end)")
+                continue
+            }
             parser.parse(xml)
             if let desc = parser.error?.localizedDescription { print("parsing error:\(desc)") }
             guard parser.sources.count != 0, var src = parser.sources.first else { continue }
@@ -80,6 +172,7 @@ extension String {
             let textAttachment = ATML.Attachment(tag: tagName, id: identifier, src: src)
             textAttachment.attributes = parser.attributes
             textAttachment.html = matchedString
+            textAttachment.link = parser.link
             
             var size = CGSize.zero
             if let width = parser.attributes["width"], width.contains("%") == false {
@@ -120,16 +213,18 @@ extension ATML {
         public var attributes: [String: String]?
         public var html: String?
         public var size = CGSize.zero
+        public var link: String?
         
         fileprivate enum Keys: String {
-            case identifier
-            case tagName
-            case src
-            case maxSize
-            case align
-            case attributes
-            case html
-            case size
+            case identifier = "identifier"
+            case tagName = "tagName"
+            case src = "src"
+            case maxSize = "maxSize"
+            case align = "align"
+            case attributes = "attributes"
+            case html = "html"
+            case size = "size"
+            case link = "link"
         }
         
         public enum Tag: String {
@@ -138,12 +233,27 @@ extension ATML {
             case embed = "embed"
             case video = "video"
             case audio = "audio"
+            case blockquote = "blockquote"
+            case em = "em"
+            case i = "i"
+            case strong = "strong"
+            case atmlEM = "ATMLTagEm"
+            case atmlStrong = "ATMLStrong"
+            case link = "link"
             
             private static let imgRegex = try! NSRegularExpression(pattern: "<img\\s+.*?(?:src\\s*=\\s*'|\".*?'|\").*?>", options: .caseInsensitive)
+            private static let linkRegex = try! NSRegularExpression(pattern: "<a\\s+.*?(?:href\\s*=\\s*'|\".*?'|\").*?>([\\s\\S]+?)</a>", options: .caseInsensitive)
             private static let embedRegex = try! NSRegularExpression(pattern: "<embed\\s+.*?(?:src\\s*=\\s*'|\".*?'|\").*?>", options: .caseInsensitive)
             private static let iframeRegex = try! NSRegularExpression(pattern: "<iframe[^>]*?>.*?</iframe>", options: .caseInsensitive)
             private static let audioRegex = try! NSRegularExpression(pattern: "<audio[^>]*?>.*?</audio>", options: .caseInsensitive)
             private static let videoRegex = try! NSRegularExpression(pattern: "<video[^>]*?>.*?</video>", options: .caseInsensitive)
+            private static let blockquoteRegex = try! NSRegularExpression(pattern: "(?:<blockquote[^>]*?>)([\\s\\S]+?)(?:<\\/blockquote>)", options: .caseInsensitive)
+            private static let emRegex = try! NSRegularExpression(pattern: "<em[^>]*?>.*?</em>", options: .caseInsensitive)
+            private static let iRegex = try! NSRegularExpression(pattern: "<i[^>]*?>.*?</i>", options: .caseInsensitive)
+            private static let strongRegex = try! NSRegularExpression(pattern: "(?:<strong[^>]*?>)([\\s\\S]+?)(?:<\\/strong>)", options: .caseInsensitive)
+            
+            private static let attEmRegex = try! NSRegularExpression(pattern: "ATMLEM(.*?)ATMLEMEnd", options: .caseInsensitive)
+            private static let attStrongRegex = try! NSRegularExpression(pattern: "(?:ATMLStrong)(.*?)(?:ATMLStrongEnd)", options: .caseInsensitive)
             
             var regex: NSRegularExpression {
                 switch self {
@@ -152,6 +262,13 @@ extension ATML {
                 case .embed: return Tag.embedRegex
                 case .video: return Tag.videoRegex
                 case .audio: return Tag.audioRegex
+                case .blockquote: return Tag.blockquoteRegex
+                case .em: return Tag.emRegex
+                case .i: return Tag.iRegex
+                case .strong: return Tag.strongRegex
+                case .atmlEM: return Tag.attEmRegex
+                case .atmlStrong: return Tag.attStrongRegex
+                case .link: return Tag.linkRegex
                 }
             }
         }
@@ -178,6 +295,7 @@ extension ATML {
             attributes = aDecoder.decodeObject(forKey: Keys.attributes.rawValue) as? [String: String]
             html = aDecoder.decodeObject(forKey: Keys.html.rawValue) as? String
             size = aDecoder.decodeCGSize(forKey: Keys.size.rawValue)
+            link = aDecoder.decodeObject(forKey: Keys.link.rawValue) as? String
             super.init(coder: aDecoder)
         }
         
@@ -192,6 +310,7 @@ extension ATML {
             aCoder.encode(attributes, forKey: Keys.attributes.rawValue)
             aCoder.encode(html, forKey: Keys.html.rawValue)
             aCoder.encode(size, forKey: Keys.size.rawValue)
+            aCoder.encode(link, forKey: Keys.link.rawValue)
         }
         
         public override func attachmentBounds(for textContainer: NSTextContainer?, proposedLineFragment lineFrag: CGRect, glyphPosition position: CGPoint, characterIndex charIndex: Int) -> CGRect {
@@ -220,19 +339,26 @@ extension ATML {
     }
     
     // MARK: XMLParser
-    fileprivate final class ATMLXMLParser: NSObject, XMLParserDelegate {
+    final class ATMLXMLParser: NSObject, XMLParserDelegate {
         let srcAttributeName = "src"
         let sourceElementName = "source"
+        let linkElementName = "link"
+        let hrefElementName = "href"
         
         var tag: String?
         var attributes: [String: String] = [:]
         var sources: [String] = []
         var error: Error?
+        var link: String?
+        var href: String?
+        var tagAttributes: [String : [String : String]] = [:]
         private func reset() {
             tag = nil
             attributes = [:]
             sources = []
             error = nil
+            link = nil
+            href = nil
         }
         
         func parse(_ xml: String) {
@@ -255,7 +381,10 @@ extension ATML {
                 return
             }
             tag = elementName
+            tagAttributes[elementName] = attributeDict
             attributes = attributeDict
+            link = attributeDict[linkElementName]
+            href = attributeDict[hrefElementName]
         }
         
         func parser(_: XMLParser, parseErrorOccurred parseError: Error) {
