@@ -200,7 +200,7 @@ extension String {
             
             if let align = parser.attributes["align"]?.alignment { textAttachment.align = align }
             
-            mString.replaceCharacters(in: result.range, with: textAttachment.identifier)
+            mString.replaceCharacters(in: result.range, with: "\(textAttachment.identifier)<br/>")
             attachments.append(textAttachment)
         }
         return (mString as String, attachments)

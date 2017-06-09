@@ -15,7 +15,7 @@ class ViewController: UIViewController, UITextViewDelegate {
         let path = Bundle.main.url(forResource: "File", withExtension: nil)!
         let content = try! String(contentsOf: path)
         let font = UIFont.systemFont(ofSize: 14)
-        let prefix = "<div style=\"font-family: PingFangSC-Light; font-size: \(font.pointSize)px; color:#4d4d4d\">"
+        let prefix = "<div style=\"font-family: PingFangSC-Light; font-size: \(font.pointSize)px; color:#4d4d4d\"><style> \n a { text-decoration:none; }</style><p></p>"
         let subfix = "</div>"
         let final = "\(prefix)\(content)\(subfix)"
         textView.display(html: final)
