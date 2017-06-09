@@ -175,11 +175,20 @@ extension String {
             textAttachment.link = parser.link
             
             var size = CGSize.zero
-            if let width = parser.attributes["width"], width.contains("%") == false {
-                size.width = CGFloat(Int(width) ?? 0)
+            
+            if let width = parser.attributes["width"] {
+                if width.contains("%"), let value = Float(width.replacingOccurrences(of: "%", with: "")) {
+                    size.width = CGFloat(value / 100) * UIScreen.main.bounds.width
+                } else {
+                     size.width = CGFloat(Int(width) ?? 0)
+                }
             }
-            if let height = parser.attributes["height"], height.contains("%") == false {
-                size.height = CGFloat(Int(height) ?? 0)
+            if let height = parser.attributes["height"] {
+                if height.contains("%"), let value = Float(height.replacingOccurrences(of: "%", with: "")) {
+                    size.height = CGFloat(value / 100) * UIScreen.main.bounds.height
+                } else {
+                    size.height = CGFloat(Int(height) ?? 0)
+                }
             }
             textAttachment.size = size
             

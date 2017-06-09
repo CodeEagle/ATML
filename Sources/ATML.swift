@@ -35,7 +35,7 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
             }
             let imageView: UIImageView = UIImageView(frame: CGRect(origin: .zero, size: size))
             var handler: CompletionHandler?
-            if size == .zero {
+            if size.width == 0 || size.height == 0 {
                 handler = {[weak self] obj in
                     guard let image = obj.0, let sself = self else { return }
                     var imgSize = image.size
