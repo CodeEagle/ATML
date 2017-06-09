@@ -40,6 +40,10 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
                     guard let image = obj.0, let sself = self else { return }
                     var imgSize = image.size
                     let ratio = imgSize.width / imgSize.height
+                    if size.width != 0 {
+                        imgSize.width = size.width
+                        imgSize.height = imgSize.width / ratio
+                    }
                     if imgSize.width > width {
                         imgSize.width = width
                         imgSize.height = width / ratio
