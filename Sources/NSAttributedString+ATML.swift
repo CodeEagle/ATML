@@ -16,7 +16,7 @@ extension String {
     typealias Result = (processedString: String, attachments: [ATML.Attachment])
     
     internal func attributedString(withDocumentAttributes attrs: [String: Any]? = nil) -> NSAttributedString? {
-        let parsed = parsing(tags: [.image, .embed, .iframe, .audio, .video, .blockquote, .strong, .em, .i])
+        let parsed = parsing(tags: [.image, .embed, .iframe, .audio, .video, .blockquote, .strong, .em, .i, .seperator])
         let parsedString = parsed.processedString
         let attachments = parsed.attachments
         
@@ -25,7 +25,7 @@ extension String {
         var options: [String: Any] = [
             NSDocumentTypeDocumentAttribute: NSHTMLTextDocumentType,
             NSCharacterEncodingDocumentAttribute: String.Encoding.utf8.rawValue,
-            ]
+        ]
         
         if let attr = attrs { options[NSDefaultAttributesDocumentAttribute] = attr }
         guard let attrString = try? NSMutableAttributedString(data: data, options: options, documentAttributes: nil) else { return nil }
@@ -160,6 +160,12 @@ extension String {
                 mString.replaceCharacters(in: result.range, with: "\(start)\(xml)\(end)")
                 continue
             }
+            if tag == .seperator {
+                let textAttachment = ATML.Attachment(tag: tagName, id: identifier, src: "")
+                mString.replaceCharacters(in: result.range, with: identifier)
+                attachments.append(textAttachment)
+                continue
+            }
             parser.parse(xml)
             if let desc = parser.error?.localizedDescription { print("parsing error:\(desc)") }
             guard parser.sources.count != 0, var src = parser.sources.first else { continue }
@@ -249,6 +255,7 @@ extension ATML {
             case atmlEM = "ATMLTagEm"
             case atmlStrong = "ATMLStrong"
             case link = "link"
+            case seperator = "seperator"
             
             private static let imgRegex = try! NSRegularExpression(pattern: "<img\\s+.*?(?:src\\s*=\\s*'|\".*?'|\").*?>", options: .caseInsensitive)
             private static let linkRegex = try! NSRegularExpression(pattern: "<a\\s+.*?(?:href\\s*=\\s*'|\".*?'|\").*?>([\\s\\S]+?)</a>", options: .caseInsensitive)
@@ -264,6 +271,8 @@ extension ATML {
             private static let attEmRegex = try! NSRegularExpression(pattern: "ATMLEM(.*?)ATMLEMEnd", options: .caseInsensitive)
             private static let attStrongRegex = try! NSRegularExpression(pattern: "(?:ATMLStrong)(.*?)(?:ATMLStrongEnd)", options: .caseInsensitive)
             
+            private static let seperatorRegex = try! NSRegularExpression(pattern: "<hr\\S?/>", options: .caseInsensitive)
+            
             var regex: NSRegularExpression {
                 switch self {
                 case .image: return Tag.imgRegex
@@ -278,6 +287,7 @@ extension ATML {
                 case .atmlEM: return Tag.attEmRegex
                 case .atmlStrong: return Tag.attStrongRegex
                 case .link: return Tag.linkRegex
+                case .seperator: return Tag.seperatorRegex
                 }
             }
         }

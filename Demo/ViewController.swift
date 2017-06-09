@@ -21,6 +21,7 @@ class ViewController: UIViewController, UITextViewDelegate {
         textView.display(html: final)
         textView.delegate = self
         textView.isEditable = false
+        textView.textContainerInset = UIEdgeInsetsMake(0, 10, 0, 10)
         // Do any additional setup after loading the view, typically from a nib.
     }
     @IBOutlet weak var textView: UITextView!

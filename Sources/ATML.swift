@@ -84,6 +84,14 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
             web.load(URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 60))
             return web
         }
+        
+        if tag == Attachment.Tag.seperator.rawValue {
+            let view = UIView(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 1))
+            view.backgroundColor = UIColor.darkGray
+            attachment.maxSize = view.bounds.size
+            attachment.size = view.bounds.size
+            return view
+        }
         return nil
     }
 
@@ -99,7 +107,6 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
     private var _lastFrame: CGRect?
     private lazy var blockquoteCSS: String = {
         let blockQuoteCSS = "\nblockquote > p {color:#808080; display: inline;} \n blockquote { background: #f9f9f9; padding: 10px;}"
-        let pCSS = "p {}"
         let cssStyle = "\(blockQuoteCSS)\n"
         return "<style>\(cssStyle)</style>"
     }()
@@ -231,7 +238,9 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
             var targetView = self.attachmentMap?(attachment)
             if targetView == nil, self.enableAutoLoadAttachment {
                 targetView = self._defaultAttachmentMap(attachment)
-                targetView?.backgroundColor = self.base?.backgroundColor
+                if attachment.tagName != Attachment.Tag.seperator.rawValue {
+                    targetView?.backgroundColor = self.base?.backgroundColor
+                }
                 targetView?.isOpaque = true
             }
             guard let view = targetView else { return }
@@ -272,6 +281,7 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         let final = size ?? .zero
         guard let info = _attachmentInfoMap[attachment.identifier] else { return }
         let view = info.view
+        let orgHeight = info.view.bounds.height
         if view.frame.height == 0 { return }
         let ratio = view.frame.size.width / view.frame.size.height
         if attachment.maxSize.width == 0.0 || attachment.maxSize.width > final.width {
@@ -280,6 +290,9 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         } else {
             view.frame.size.width = attachment.maxSize.width
             view.frame.size.height = attachment.maxSize.height
+        }
+        if view.frame.height == 0, orgHeight == 1 {
+            view.frame.size.height = orgHeight
         }
     }
 
@@ -309,12 +322,11 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         case .right: frame.origin.x = width - frame.size.width
         case .center: frame.origin.x = width / 2.0 - (frame.size.width / 2.0) + offset
         }
-        if let lastRange = _lastRange, lastRange.location + lastRange.length == range.location - 1, let lastFrame = _lastFrame {
+        if let lastRange = _lastRange, lastRange.location + lastRange.length + 1 == range.location, let lastFrame = _lastFrame {
             frame.origin.y += lastFrame.height
         }
         _lastRange = range
         _lastFrame = frame
-        
         return frame
     }
 
