@@ -14,11 +14,11 @@ class ViewController: UIViewController, UITextViewDelegate {
         super.viewDidLoad()
         let path = Bundle.main.url(forResource: "File", withExtension: nil)!
         let content = try! String(contentsOf: path)
-        let font = UIFont.systemFont(ofSize: 14)
-        let prefix = "<div style=\"font-family: PingFangSC-Light; font-size: \(font.pointSize)px; color:#4d4d4d\"><style> \n a { text-decoration:none; }</style><p></p>"
+        let font = ATML.FontInfo(fontFamily: "PingFangSC-Light", fontSize: 14, fontColor: "#4d4d4d")
+        let prefix = "<div style=\"font-family: \(font.fontFamily); font-size: \(font.fontSize)px; color:\(font.fontColor)\"><style> \n a { text-decoration:none; }</style><div></div>"
         let subfix = "</div>"
         let final = "\(prefix)\(content)\(subfix)"
-        textView.display(html: final)
+        textView.display(html: final, font: font)
         textView.delegate = self
         textView.isEditable = false
         textView.textContainerInset = UIEdgeInsetsMake(0, 10, 0, 10)

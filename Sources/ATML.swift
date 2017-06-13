@@ -84,12 +84,31 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
             web.load(URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 60))
             return web
         }
-        
+        if tag == Attachment.Tag.blockquote.rawValue {
+            guard let html = attachment.html else { return nil }
+            let view = BlockQuoteView(with: html, font: self._font, completion: {[weak self] (h) in
+                var size = attachment.size
+                let width = UIScreen.main.bounds.width
+                if size.width > width {
+                    size.width = width
+                }
+                size.height = h
+                attachment.maxSize = size
+                attachment.size = size
+                DispatchQueue.main.async {
+                    self?.layoutAttachments()
+                }
+            })
+            attachment.maxSize = view.bounds.size
+            attachment.size = view.bounds.size
+            return view
+        }
         if tag == Attachment.Tag.seperator.rawValue {
-            let view = UIView(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 1))
+            let view = UIView(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 0.5))
             view.backgroundColor = UIColor.darkGray
             attachment.maxSize = view.bounds.size
             attachment.size = view.bounds.size
+            view.isUserInteractionEnabled = false
             return view
         }
         return nil
@@ -100,6 +119,7 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
     public var attachments: [Attachment] = []
 
     private var _imageInfo: [Int: String] = [:]
+    fileprivate var _font: FontInfo = FontInfo()
     fileprivate var _attachmentInfoMap: [String: AttachmentInfo] = [:]
     fileprivate let _kvoAttributedTextKey = "attributedText"
     fileprivate static var Store = "ATML.Store"
@@ -291,7 +311,7 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
             view.frame.size.width = attachment.maxSize.width
             view.frame.size.height = attachment.maxSize.height
         }
-        if view.frame.height == 0, orgHeight == 1 {
+        if view.frame.height == 0 {
             view.frame.size.height = orgHeight
         }
     }
@@ -340,20 +360,67 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         layoutManager.textStorage?.enumerateAttribute(NSAttachmentAttributeName, in: textStorage.wholeRange,options: [], using: filter)
         layoutAttachments()
     }
+    
+    public struct FontInfo {
+        public let fontFamily: String
+        public let fontSize: CGFloat
+        public let fontColor: String
+        public init(fontFamily: String = "PingFangSC-Light", fontSize: CGFloat = 12, fontColor: String = "#4d4d4d") {
+            self.fontFamily = fontFamily
+            self.fontSize = fontSize
+            self.fontColor = fontColor
+        }
+    }
+}
+
+
+
+
+// MARK: - Blockquote view
+final class BlockQuoteView: WKWebView, WKNavigationDelegate {
+    var loadingdone: (CGFloat) -> Void = { _ in }
+    
+    override init(frame: CGRect, configuration: WKWebViewConfiguration) {
+        super.init(frame: frame, configuration: configuration)
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+    }
+    
+    convenience init(with content: String, font: ATML.FontInfo, completion: @escaping (CGFloat) -> Void) {
+        let conf = WKWebViewConfiguration()
+        self.init(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 1), configuration: conf)
+        loadingdone = completion
+        let final = "<html><head><meta charSet=\"utf-8\" /><title></title><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no\" /><style>  body, html{width: 100%;height: 100%;background: #fff;margin: 0;            padding: 0;} \nblockquote { padding: 15px; margin: 20px; color: #666; border-left: 4px solid #eee;} \np {font-family: \(font.fontFamily); font-size: \(font.fontSize)px; color:(font.fontColor) }</style></head><body>\(content)</body></html>"
+        loadHTMLString(final, baseURL: nil)
+        navigationDelegate = self
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.scrollsToTop = false
+    }
+    
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        webView.evaluateJavaScript("document.body.scrollHeight") {[unowned self] (obj, _) -> Void in
+            guard let h = obj as? CGFloat else { return }
+            self.frame.size.height = h
+            self.loadingdone(h)
+        }
+    }
 }
 
 
 // MARK: - UITextView extension
 extension UITextView {
-
+    
     public var atml: ATML {
         var value: ATML! = objc_getAssociatedObject(self, &ATML.Store) as? ATML
         if value == nil { value = ATML(self) }
         objc_setAssociatedObject(self, &ATML.Store, value, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         return value
     }
-
-    public func display(html: String, documentAttributes: [String: Any]? = nil, enableAutoLoadAttachment: Bool = true, done: @escaping () -> () = {}) {
+    
+    public func display(html: String, font: ATML.FontInfo = ATML.FontInfo(), documentAttributes: [String: Any]? = nil, enableAutoLoadAttachment: Bool = true, done: @escaping () -> () = {}) {
+        atml._font = font
         atml.enableAutoLoadAttachment = enableAutoLoadAttachment
         atml.display(html: html, documentAttributes: documentAttributes, done: done)
     }

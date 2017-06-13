@@ -138,8 +138,11 @@ extension String {
                 xml = "\(matchedString)\(closingTag)"
             }
             if tag == .blockquote {
-                let final = xml.replacingOccurrences(of: "<blockquote>\n", with: "<blockquote>\n<k style=\"color:#ccc; font-size: 2em; font-family: 'Copperplate'\">“</k>")
-                mString.replaceCharacters(in: result.range, with: "\(final)<br/>")
+                let textAttachment = ATML.Attachment(tag: tagName, id: identifier, src: "")
+                textAttachment.attributes = parser.attributes
+                textAttachment.html = xml
+                attachments.append(textAttachment)
+                mString.replaceCharacters(in: result.range, with: "\(identifier)<br/><br/>")
                 continue
             }
             if tag == .em || tag == .i {
@@ -197,10 +200,8 @@ extension String {
                 }
             }
             textAttachment.size = size
-            
             if let align = parser.attributes["align"]?.alignment { textAttachment.align = align }
-            
-            mString.replaceCharacters(in: result.range, with: "\(textAttachment.identifier)<br/>")
+            mString.replaceCharacters(in: result.range, with: textAttachment.identifier)
             attachments.append(textAttachment)
         }
         return (mString as String, attachments)
@@ -268,8 +269,8 @@ extension ATML {
             private static let iRegex = try! NSRegularExpression(pattern: "<i[^>]*?>.*?</i>", options: .caseInsensitive)
             private static let strongRegex = try! NSRegularExpression(pattern: "(?:<strong[^>]*?>)([\\s\\S]+?)(?:<\\/strong>)", options: .caseInsensitive)
             
-            private static let attEmRegex = try! NSRegularExpression(pattern: "ATMLEM(.*?)ATMLEMEnd", options: .caseInsensitive)
-            private static let attStrongRegex = try! NSRegularExpression(pattern: "(?:ATMLStrong)(.*?)(?:ATMLStrongEnd)", options: .caseInsensitive)
+            private static let attEmRegex = try! NSRegularExpression(pattern: "ATMLEM([\\s\\S]+?)ATMLEMEnd", options: .caseInsensitive)
+            private static let attStrongRegex = try! NSRegularExpression(pattern: "ATMLStrong([\\s\\S]+?)ATMLStrongEnd", options: .caseInsensitive)
             
             private static let seperatorRegex = try! NSRegularExpression(pattern: "<hr\\S?/>", options: .caseInsensitive)
             
