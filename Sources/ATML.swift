@@ -397,6 +397,7 @@ final class BlockQuoteView: WKWebView, WKNavigationDelegate {
         navigationDelegate = self
         scrollView.showsVerticalScrollIndicator = false
         scrollView.scrollsToTop = false
+        scrollView.isScrollEnabled = false
     }
     
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
