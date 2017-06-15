@@ -8,7 +8,7 @@
 
 import Foundation
 
-private let _defaultIdentifier = "ATMLAttachmentDefaultIdentifier"
+private let _defaultIdentifier = "ATMLIdentifier"
 private let MediaTypes = "wav,aac,mp3,mov,mp4,m4v"
 
 extension String {
@@ -130,7 +130,7 @@ extension String {
         let parser = ATML.ATMLXMLParser()
         for result in results.reversed() {
             counter += 1
-            let identifier = "\(_defaultIdentifier)\(tagName)\(counter)"
+            let identifier = "\(_defaultIdentifier)\(tagName)\(counter)."
             let matchedString = mString.substring(with: result.range)
             
             var xml = matchedString

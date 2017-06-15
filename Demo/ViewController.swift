@@ -17,7 +17,7 @@ class ViewController: UIViewController, UITextViewDelegate {
         let font = ATML.FontInfo(fontFamily: "PingFangSC-Light", fontSize: 14, fontColor: "#4d4d4d")
         let prefix = "<div style=\"font-family: \(font.fontFamily); font-size: \(font.fontSize)px; color:\(font.fontColor)\"><style> \n a { text-decoration:none; } \n p > span { line-height: 2em; }</style><div></div>"
         let subfix = "</div>"
-        let final = "\(prefix)\(content)\(subfix)"
+        let final = "\(prefix)\(content) \(subfix)"
         textView.display(html: final, font: font)
         textView.delegate = self
         textView.isEditable = false
