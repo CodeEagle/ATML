@@ -30,6 +30,7 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
     
     fileprivate var _currentPreloadAttachmentCount = Int.max
     fileprivate var _currentPreloadRect = CGRect.zero
+    fileprivate var _lastY: CGFloat = 0
 
     fileprivate lazy var _defaultAttachmentMap: ATMLAttachmentMap = {[unowned self] attachment in
         let tag = attachment.tagName
@@ -193,7 +194,6 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         let parser = ATML.ATMLXMLParser()
         for (key, value) in placeholders {
             let subimages = images(within: value)
-            print(value)
             parser.parse(value)
             var copy = value
             if subimages.count > 0, let href = parser.tagAttributes["a"]?["href"]  {
@@ -292,14 +292,15 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
                 self.base?.addSubview(view)
             }
             if self._currentPreloadRect != .zero {
-                guard let manager = self.base?.layoutManager, let container = self.base?.textContainer else { return }
+                guard let manager = self.base?.layoutManager, let container = self.base?.textContainer, self._lastY <= self._currentPreloadRect.maxY else { return }
                 let range = NSMakeRange(attachment.location, 1)
                 var glyphRange = NSRange()
                 manager.characterRange(forGlyphRange: range, actualGlyphRange: &glyphRange)
                 let rect = manager.boundingRect(forGlyphRange: glyphRange, in: container)
-                if rect.minY < self.preloadRect.maxY {
+                if rect.minY < self._currentPreloadRect.maxY {
                     doAdd()
                 }
+                self._lastY = rect.maxY
             } else if attachment.index + 1 <= self._currentPreloadAttachmentCount {
                 doAdd()
             }
