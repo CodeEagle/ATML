@@ -161,13 +161,20 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         DispatchQueue.global(qos: .userInitiated).async {
             let text = self.emhanceImageWithLink(for: html)
             let final = "\(text)\(self.blockquoteCSS)"
-            let att = final.attributedString(withDocumentAttributes: documentAttributes)
+            var att: NSAttributedString?
+            if #available(iOS 9.0, *) {
+                att = final.attributedString(withDocumentAttributes: documentAttributes)
+            }
             DispatchQueue.main.async {
+                if #available(iOS 9.0, *) { } else {
+                    att = final.attributedString(withDocumentAttributes: documentAttributes)
+                }
                 self._currentPreloadRect = self.preloadRect
                 self._currentPreloadAttachmentCount = self.preloadAttachmentCount
                 self.base?.attributedText = att
                 done()
             }
+            
         }
     }
    
