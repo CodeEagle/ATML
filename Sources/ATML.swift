@@ -254,6 +254,7 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
     }
     
     public func loadLeftAttachments() {
+        _lastY = 0
         _currentPreloadRect = .zero
         _currentPreloadAttachmentCount = Int.max
         resetAttachments()
