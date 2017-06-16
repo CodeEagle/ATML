@@ -17,6 +17,19 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
     typealias TextStorageEnumerateFilter = (Any?, NSRange, UnsafeMutablePointer<ObjCBool>) -> Void
     public weak var base: UITextView?
     public var enableAutoLoadAttachment = true
+    public var preloadAttachmentCount = Int.max {
+        didSet {
+            _currentPreloadAttachmentCount = preloadAttachmentCount
+        }
+    }
+    public var preloadRect = CGRect.zero {
+        didSet {
+            _currentPreloadRect = preloadRect
+        }
+    }
+    
+    fileprivate var _currentPreloadAttachmentCount = Int.max
+    fileprivate var _currentPreloadRect = CGRect.zero
 
     fileprivate lazy var _defaultAttachmentMap: ATMLAttachmentMap = {[unowned self] attachment in
         let tag = attachment.tagName
@@ -149,12 +162,14 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
             let final = "\(text)\(self.blockquoteCSS)"
             let att = final.attributedString(withDocumentAttributes: documentAttributes)
             DispatchQueue.main.async {
+                self._currentPreloadRect = self.preloadRect
+                self._currentPreloadAttachmentCount = self.preloadAttachmentCount
                 self.base?.attributedText = att
                 done()
             }
         }
     }
-    
+   
     @objc private func imageTap(tap: UITapGestureRecognizer) {
         guard let tag = tap.view?.tag, let info = _imageInfo[tag], let url = URL(string: info), let tv = base else { return }
         guard tv.delegate?.textView?(tv, shouldInteractWith: url, in: NSMakeRange(0, 0)) == nil else { return }
@@ -238,6 +253,12 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         textStorage.enumerateAttribute(NSAttachmentAttributeName, in: textStorage.wholeRange, options: [], using: filter)
     }
     
+    public func loadLeftAttachments() {
+        _currentPreloadRect = .zero
+        _currentPreloadAttachmentCount = Int.max
+        resetAttachments()
+    }
+    
     private func reset() {
         guard let textContainer = base?.textContainer else { return }
         for (_, info) in _attachmentInfoMap {
@@ -254,19 +275,34 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         guard let textStorage = layoutManager?.textStorage else { return }
         let filter: TextStorageEnumerateFilter = { [unowned self] (object: Any?, _, _) in
             guard let attachment = object as? Attachment else { return }
-            self.attachments.append(attachment)
-            var targetView = self.attachmentMap?(attachment)
-            if targetView == nil, self.enableAutoLoadAttachment {
-                targetView = self._defaultAttachmentMap(attachment)
-                if attachment.tagName != Attachment.Tag.seperator.rawValue {
-                    targetView?.backgroundColor = self.base?.backgroundColor
+            
+            func doAdd() {
+                self.attachments.append(attachment)
+                var targetView = self.attachmentMap?(attachment)
+                if targetView == nil, self.enableAutoLoadAttachment {
+                    targetView = self._defaultAttachmentMap(attachment)
+                    if attachment.tagName != Attachment.Tag.seperator.rawValue {
+                        targetView?.backgroundColor = self.base?.backgroundColor
+                    }
+                    targetView?.isOpaque = true
                 }
-                targetView?.isOpaque = true
+                guard let view = targetView else { return }
+                self._attachmentInfoMap[attachment.identifier] = AttachmentInfo(id: attachment.identifier, view: view)
+                self.resize(attachment: attachment, to: self.base?.textContainer.size)
+                self.base?.addSubview(view)
             }
-            guard let view = targetView else { return }
-            self._attachmentInfoMap[attachment.identifier] = AttachmentInfo(id: attachment.identifier, view: view)
-            self.resize(attachment: attachment, to: self.base?.textContainer.size)
-            self.base?.addSubview(view)
+            if self._currentPreloadRect != .zero {
+                guard let manager = self.base?.layoutManager, let container = self.base?.textContainer else { return }
+                let range = NSMakeRange(attachment.location, 1)
+                var glyphRange = NSRange()
+                manager.characterRange(forGlyphRange: range, actualGlyphRange: &glyphRange)
+                let rect = manager.boundingRect(forGlyphRange: glyphRange, in: container)
+                if rect.minY < self.preloadRect.maxY {
+                    doAdd()
+                }
+            } else if attachment.index + 1 <= self._currentPreloadAttachmentCount {
+                doAdd()
+            }
         }
         layoutManager?.textStorage?.enumerateAttribute(NSAttachmentAttributeName,
                                                        in: NSMakeRange(0, textStorage.length),
@@ -425,4 +461,5 @@ extension UITextView {
         atml.enableAutoLoadAttachment = enableAutoLoadAttachment
         atml.display(html: html, documentAttributes: documentAttributes, done: done)
     }
+    
 }

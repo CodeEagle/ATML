@@ -18,7 +18,12 @@ class ViewController: UIViewController, UITextViewDelegate {
         let prefix = "<div style=\"font-family: \(font.fontFamily); font-size: \(font.fontSize)px; color:\(font.fontColor)\"><style> \n a { text-decoration:none; } \n p > span { line-height: 2em; }</style><div></div>"
         let subfix = "</div>"
         let final = "\(prefix)\(content) \(subfix)"
-        textView.display(html: final, font: font)
+        textView.atml.preloadRect = UIScreen.main.bounds
+        let begin = CFAbsoluteTimeGetCurrent()
+        textView.display(html: final, font: font) { 
+            let end = CFAbsoluteTimeGetCurrent()
+            print("total:\(end - begin)")
+        }
         textView.delegate = self
         textView.isEditable = false
         textView.textContainerInset = UIEdgeInsetsMake(0, 10, 0, 10)
@@ -32,7 +37,7 @@ class ViewController: UIViewController, UITextViewDelegate {
     }
 
     func textView(_ textView: UITextView, shouldInteractWith URL: URL, in characterRange: NSRange, interaction: UITextItemInteraction) -> Bool {
-        print("wanna open \(URL)")
+        textView.atml.loadLeftAttachments()
         return false
     }
 }

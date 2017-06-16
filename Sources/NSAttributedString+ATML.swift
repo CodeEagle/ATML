@@ -35,6 +35,7 @@ extension String {
             guard let r = raw.range(of: attachment.identifier) else { continue }
             let range = raw.nsRange(from: r)
             let attachmentString = NSAttributedString(attachment: attachment)
+            attachment.location = range.location
             parsedAttributedString.replaceCharacters(in: range, with: attachmentString)
         }
         return NSAttributedString(attributedString: parsedAttributedString)
@@ -117,7 +118,14 @@ extension String {
             dataToProcess = result.processedString
             attachments.append(contentsOf: result.attachments)
         }
-        return (dataToProcess, attachments)
+        attachments = attachments.sorted(by: { $0.location < $1.location })
+        var copy: [ATML.Attachment] = []
+        for (index, item) in attachments.enumerated() {
+            let copyItme = item
+            copyItme.index = index
+            copy.append(copyItme)
+        }
+        return (dataToProcess, copy)
     }
     
     private func extract(_ tag: ATML.Attachment.Tag) -> Result {
@@ -141,6 +149,7 @@ extension String {
                 let textAttachment = ATML.Attachment(tag: tagName, id: identifier, src: "")
                 textAttachment.attributes = parser.attributes
                 textAttachment.html = xml
+                textAttachment.location = result.range.location
                 attachments.append(textAttachment)
                 mString.replaceCharacters(in: result.range, with: "\(identifier)<br/><br/>")
                 continue
@@ -149,6 +158,7 @@ extension String {
                 let textAttachment = ATML.Attachment(tag: tagName, id: identifier, src: "")
                 textAttachment.attributes = parser.attributes
                 textAttachment.html = matchedString
+                textAttachment.location = result.range.location
                 let start = "ATMLEM"
                 let end = "ATMLEMEnd"
                 mString.replaceCharacters(in: result.range, with: "\(start)\(xml)\(end)")
@@ -158,6 +168,7 @@ extension String {
                 let textAttachment = ATML.Attachment(tag: tagName, id: identifier, src: "")
                 textAttachment.attributes = parser.attributes
                 textAttachment.html = matchedString
+                textAttachment.location = result.range.location
                 let start = "ATMLStrong"
                 let end = "ATMLStrongEnd"
                 mString.replaceCharacters(in: result.range, with: "\(start)\(xml)\(end)")
@@ -166,6 +177,7 @@ extension String {
             if tag == .seperator {
                 let textAttachment = ATML.Attachment(tag: tagName, id: identifier, src: "")
                 mString.replaceCharacters(in: result.range, with: identifier)
+                textAttachment.location = result.range.location
                 attachments.append(textAttachment)
                 continue
             }
@@ -182,7 +194,7 @@ extension String {
             textAttachment.attributes = parser.attributes
             textAttachment.html = matchedString
             textAttachment.link = parser.link
-            
+            textAttachment.location = result.range.location
             var size = CGSize.zero
             
             if let width = parser.attributes["width"] {
@@ -230,6 +242,8 @@ extension ATML {
         public var html: String?
         public var size = CGSize.zero
         public var link: String?
+        public var index: Int = 0
+        public var location: Int = 0
         
         fileprivate enum Keys: String {
             case identifier = "identifier"
@@ -241,6 +255,8 @@ extension ATML {
             case html = "html"
             case size = "size"
             case link = "link"
+            case index = "index"
+            case location = "location"
         }
         
         public enum Tag: String {
@@ -316,6 +332,8 @@ extension ATML {
             html = aDecoder.decodeObject(forKey: Keys.html.rawValue) as? String
             size = aDecoder.decodeCGSize(forKey: Keys.size.rawValue)
             link = aDecoder.decodeObject(forKey: Keys.link.rawValue) as? String
+            index = aDecoder.decodeInteger(forKey: Keys.index.rawValue)
+            location = aDecoder.decodeInteger(forKey: Keys.location.rawValue)
             super.init(coder: aDecoder)
         }
         
@@ -331,6 +349,8 @@ extension ATML {
             aCoder.encode(html, forKey: Keys.html.rawValue)
             aCoder.encode(size, forKey: Keys.size.rawValue)
             aCoder.encode(link, forKey: Keys.link.rawValue)
+            aCoder.encode(index, forKey: Keys.index.rawValue)
+            aCoder.encode(location, forKey: Keys.location.rawValue)
         }
         
         public override func attachmentBounds(for textContainer: NSTextContainer?, proposedLineFragment lineFrag: CGRect, glyphPosition position: CGPoint, characterIndex charIndex: Int) -> CGRect {
@@ -421,5 +441,28 @@ extension String {
         let location = utf16view.distance(from: utf16view.startIndex, to: from)
         let length = utf16view.distance(from: from, to: end)
         return NSMakeRange(location, length)
+    }
+}
+
+extension NSAttributedString {
+    func subString(for rect: CGRect) -> NSAttributedString {
+        let size = CGSize(width: rect.width, height: 5000)
+        let subRect = boundingRect(with: size, options: [NSStringDrawingOptions.usesFontLeading, NSStringDrawingOptions.usesLineFragmentOrigin], context: nil)
+        
+        if  abs(subRect.height - rect.height) <= 10 || subRect.height <= rect.height {
+            return self
+        } else {
+            let sub = reduce(by: 100)
+            return sub.subString(for: rect)
+        }
+    }
+    
+    private func reduce(by count: Int) -> NSAttributedString {
+        var total = string.characters.count - count
+        if total < 0 {
+            total = 0
+        }
+        let whole = NSMakeRange(0, total)
+        return attributedSubstring(from: whole)
     }
 }
