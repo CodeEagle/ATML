@@ -142,7 +142,7 @@ extension String {
             let matchedString = mString.substring(with: result.range)
             
             var xml = matchedString
-            if matchedString.hasSuffix(closingTag) == false {
+            if matchedString.hasSuffix(closingTag) == false, closingTag != "</img>" {
                 xml = "\(matchedString)\(closingTag)"
             }
             if tag == .blockquote {
@@ -182,7 +182,9 @@ extension String {
                 continue
             }
             parser.parse(xml)
-            if let desc = parser.error?.localizedDescription { print("parsing error:\(desc)") }
+            if nil != parser.error {
+                print("parsing error:\(xml)")
+            }
             guard parser.sources.count != 0, var src = parser.sources.first else { continue }
             if parser.sources.count > 1 && (tag == .video || tag == .audio) {
                 for str in parser.sources where MediaTypes.contains(str) {

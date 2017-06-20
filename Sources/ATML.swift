@@ -49,6 +49,7 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
             }
             let imageView: UIImageView = UIImageView(frame: CGRect(origin: .zero, size: size))
             var handler: CompletionHandler?
+            
             if size.width == 0 || size.height == 0 {
                 handler = {[weak self] obj in
                     guard let image = obj.0, let sself = self else { return }
@@ -134,16 +135,12 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
 
     private var _imageInfo: [Int: String] = [:]
     fileprivate var _font: FontInfo = FontInfo()
+    fileprivate var _needAddToSuperviewIds: [String] = []
     fileprivate var _attachmentInfoMap: [String: AttachmentInfo] = [:]
     fileprivate let _kvoAttributedTextKey = "attributedText"
     fileprivate static var Store = "ATML.Store"
     private var _lastRange: NSRange?
     private var _lastFrame: CGRect?
-    private lazy var blockquoteCSS: String = {
-        let blockQuoteCSS = "\nblockquote > p {color:#808080; display: inline;} \n blockquote { background: #f9f9f9; padding: 10px;}"
-        let cssStyle = "\(blockQuoteCSS)\n"
-        return "<style>\(cssStyle)</style>"
-    }()
     
     var layoutManager: NSLayoutManager? { return base?.layoutManager }
     
@@ -154,27 +151,29 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
             guard self.base != nil else { return }
             self.resetAttachments()
         }
+        base.observeKeyPath("contentSize") { target, _, _ in
+            guard let view = target as? UITextView else { return }
+            print(view.contentSize.height)
+        }
         layoutManager?.delegate = self
     }
 
     func display(html: String, documentAttributes: [String: Any]? = nil, done: @escaping () -> ()) {
         DispatchQueue.global(qos: .userInitiated).async {
             let text = self.emhanceImageWithLink(for: html)
-            let final = "\(text)\(self.blockquoteCSS)"
             var att: NSAttributedString?
             if #available(iOS 9.0, *) {
-                att = final.attributedString(withDocumentAttributes: documentAttributes)
+                att = text.attributedString(withDocumentAttributes: documentAttributes)
             }
             DispatchQueue.main.async {
                 if #available(iOS 9.0, *) { } else {
-                    att = final.attributedString(withDocumentAttributes: documentAttributes)
+                    att = text.attributedString(withDocumentAttributes: documentAttributes)
                 }
                 self._currentPreloadRect = self.preloadRect
                 self._currentPreloadAttachmentCount = self.preloadAttachmentCount
                 self.base?.attributedText = att
                 done()
             }
-            
         }
     }
    
@@ -264,6 +263,11 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         _lastY = 0
         _currentPreloadRect = .zero
         _currentPreloadAttachmentCount = Int.max
+        for id in _needAddToSuperviewIds {
+            guard let view = _attachmentInfoMap[id]?.view else { continue }
+            self.base?.addSubview(view)
+        }
+        _needAddToSuperviewIds.removeAll()
         resetAttachments()
     }
     
@@ -274,6 +278,7 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
             guard let path = info.exclusionPath, let idx = textContainer.exclusionPaths.index(of: path) else { return }
             textContainer.exclusionPaths.remove(at: idx)
         }
+        _needAddToSuperviewIds.removeAll()
         _attachmentInfoMap.removeAll()
         attachments.removeAll()
     }
@@ -284,7 +289,7 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         let filter: TextStorageEnumerateFilter = { [unowned self] (object: Any?, _, _) in
             guard let attachment = object as? Attachment else { return }
             
-            func doAdd() {
+            func doAdd(toSuperview: Bool) {
                 self.attachments.append(attachment)
                 var targetView = self.attachmentMap?(attachment)
                 if targetView == nil, self.enableAutoLoadAttachment {
@@ -297,20 +302,31 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
                 guard let view = targetView else { return }
                 self._attachmentInfoMap[attachment.identifier] = AttachmentInfo(id: attachment.identifier, view: view)
                 self.resize(attachment: attachment, to: self.base?.textContainer.size)
-                self.base?.addSubview(view)
+                if toSuperview {
+                    self.base?.addSubview(view)
+                } else {
+                    self._needAddToSuperviewIds.append(attachment.identifier)
+                }
             }
             if self._currentPreloadRect != .zero {
-                guard let manager = self.base?.layoutManager, let container = self.base?.textContainer, self._lastY <= self._currentPreloadRect.maxY else { return }
+                guard let manager = self.base?.layoutManager, let container = self.base?.textContainer else { return }
                 let range = NSMakeRange(attachment.location, 1)
                 var glyphRange = NSRange()
                 manager.characterRange(forGlyphRange: range, actualGlyphRange: &glyphRange)
                 let rect = manager.boundingRect(forGlyphRange: glyphRange, in: container)
+                
+                if self._lastY > self._currentPreloadRect.maxY {
+                    doAdd(toSuperview: false)
+                    return
+                }
                 if rect.minY < self._currentPreloadRect.maxY {
-                    doAdd()
+                    doAdd(toSuperview: true)
                 }
                 self._lastY = rect.maxY
             } else if attachment.index + 1 <= self._currentPreloadAttachmentCount {
-                doAdd()
+                doAdd(toSuperview: true)
+            } else {
+                doAdd(toSuperview: false)
             }
         }
         layoutManager?.textStorage?.enumerateAttribute(NSAttachmentAttributeName,
@@ -321,11 +337,12 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
     }
 
     private func layout(_ attachment: Attachment, atRange range: NSRange) {
+        
         guard let info = _attachmentInfoMap[attachment.identifier] else { return }
 
         var exclusionPaths: [UIBezierPath] = base?.textContainer.exclusionPaths ?? []
 
-        let attachmentFrame = rect(for: info, attachment: attachment, at: range)
+        let attachmentFrame = rect(for: info.view.bounds.size, attachment: attachment, at: range)
 
         var exclusionFrame = attachmentFrame
         if attachment.align == .none {
@@ -361,7 +378,7 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         }
     }
 
-    private func rect(for info: AttachmentInfo, attachment: Attachment, at range: NSRange) -> CGRect {
+    private func rect(for size: CGSize, attachment: Attachment, at range: NSRange) -> CGRect {
         guard
             let glyphRange = layoutManager?.glyphRange(forCharacterRange: range, actualCharacterRange: nil),
             let textContainer = layoutManager?.textContainer(forGlyphAt: glyphRange.location, effectiveRange: nil),
@@ -372,9 +389,9 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
         if attachment.align == .none {
             y = glyphBoundingRect.minX == lineFragmentRect.minX ? lineFragmentRect.minY : lineFragmentRect.maxY
         }
-        var frame = info.view.frame
+        var frame = CGRect(origin: .zero, size: size)
         let width = base?.textContainer.size.width ?? 0
-        if info.view.frame.width > width {
+        if size.width > width {
             frame.size.width = width
         }
         let topLinePadding: CGFloat = 4.0
