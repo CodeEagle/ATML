@@ -316,7 +316,7 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
                 let rect = manager.boundingRect(forGlyphRange: glyphRange, in: container)
                 
                 if self._lastY > self._currentPreloadRect.maxY {
-                    doAdd(toSuperview: false)
+//                    doAdd(toSuperview: false)
                     return
                 }
                 if rect.minY < self._currentPreloadRect.maxY {
@@ -326,7 +326,7 @@ public final class ATML: NSObject, NSLayoutManagerDelegate {
             } else if attachment.index + 1 <= self._currentPreloadAttachmentCount {
                 doAdd(toSuperview: true)
             } else {
-                doAdd(toSuperview: false)
+//                doAdd(toSuperview: false)
             }
         }
         layoutManager?.textStorage?.enumerateAttribute(NSAttachmentAttributeName,
